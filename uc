@@ -13,7 +13,7 @@ dependencies=(
 # is a constant, then please use global variable directly.
 export UC_DEBUG="false"
 export UC_VERBOSE="false"
-export UC_MODE="help"
+export UC_MODE=""
 export UC_FILES=""
 
 # We should check the longer file extension first,
@@ -65,13 +65,13 @@ Usage: uc <mode> [<arguments for each mode>]
 Description: Unified Cmopression Tool Wraper
 
 Availaile mode: [c, d, help]
-  c:    Compress mode.
+  c     Compress mode.
         Usage: uc c [<args>] <files to compress> ... <compressed file name>
         For .gz/.bz2/.xz, please use additional options: -gz/-bz2/-xz
         Ex. uc c -gz test.txt test2.txt
-  d:    Decompress mode.
+  d     Decompress mode.
         Usage: uc d [<args>] <files to decompressed> ...
-  help: print this help message
+  help  print this help message
 
 Common arguments for [c/d] mode:
   -p    Preview the given compressed file if supported.
@@ -194,7 +194,17 @@ function GetDecompressArgs() {
 
   if [[ "$UC_VERBOSE" == "true" ]]; then
     case $file_type in
-      '.tar.bz2' | '.tar.tgz' | '.tar.zst' | '.tar.gz' | '.tar.xz' | '.tar' | '.gz' | '.tgz' | '.bz2' | '.xz' | '.zip' )
+      '.tar.bz2' | \
+      '.tar.tgz' | \
+      '.tar.zst' | \
+      '.tar.gz' | \
+      '.tar.xz' | \
+      '.tar' | \
+      '.gz' | \
+      '.tgz' | \
+      '.bz2' | \
+      '.xz' | \
+      '.zip' )
         args="-v"
       ;;
 
@@ -225,7 +235,17 @@ function GetCompressArgs() {
 
   if [[ "$UC_VERBOSE" == "true" ]]; then
     case $file_type in
-      '.tar.bz2' | '.tar.tgz' | '.tar.zst' | '.tar.gz' | '.tar.xz' | '.tar' | '.gz' | '.tgz' | '.bz2' | '.xz' | '.zip' )
+      '.tar.bz2' | \
+      '.tar.tgz' | \
+      '.tar.zst' | \
+      '.tar.gz' | \
+      '.tar.xz' | \
+      '.tar' | \
+      '.gz' | \
+      '.tgz' | \
+      '.bz2' | \
+      '.xz' | \
+      '.zip' )
         args="-v"
       ;;
 
@@ -250,6 +270,22 @@ function GetCompressArgs() {
   echo $args
 }
 
+function CreateDecompressDirectory() {
+  filename=$1
+  file_type=$2
+  rev_file_type=$(echo "$file_type" | rev)
+  rev_filename=$(echo "$filename" | rev)
+  directory_to_create=$(echo "$rev_filename" | sed "s/$rev_file_type//1g" | rev)
+
+  if [[ -d "$directory_to_create" ]]; then
+    Eecho "[ERROR] Target directory exists!"
+    exit 1
+  else
+    mkdir -p "$directory_to_create"
+    cd "$directory_to_create"
+  fi
+}
+
 function DecompressFile() {
   if [[ $# -ne 1 ]]; then
     Eecho "Invalid argument for DecompressFile: $@"
@@ -272,6 +308,17 @@ function DecompressFile() {
     export args
   else
     unset args
+  fi
+
+  if [[ "$UC_DECOMP_NEW_DIR" != "" ]]; then
+    # Create target directory and cd into it
+    CreateDecompressDirectory $filename $file_type
+
+    # Update filename if the filename is a relative path
+    case $filename in
+      /*) ;;
+      *)  filename=../$filename ;;
+    esac
   fi
 
   export source="$filename"
@@ -388,26 +435,24 @@ function ParseArgs() {
     return
   fi
 
-  # Parse mode
-  export UC_MODE="$1"
-
   # Check whether there is debug flag set
-  shift
   while [[ $# -gt 0 ]]; do
-    if [[ "$1" == "-v" ]]; then
-      export UC_VERBOSE="true"
-    elif [[ "$1" == "-vvv" ]]; then
-      export UC_DEBUG="true"
-    elif [[ "$1" == "-gz" ]]; then
-      export UC_COMP_MODE_GZ="true"
-    elif [[ "$1" == "-bz2" ]]; then
-      export UC_COMP_MODE_BZ2="true"
-    elif [[ "$1" == "-xz" ]]; then
-      export UC_COMP_MODE_XZ="true"
-    elif [[ "$(FirstChar $1)" != "-" ]]; then
+    if [[ "$(FirstChar $1)" != "-" && "$UC_MODE" != "" ]]; then
       UC_FILES="$@"
       break
     fi
+
+    case "$1" in
+      "d" )     export UC_MODE="d" ;;
+      "c" )     export UC_MODE="c" ;;
+      "help" )  export UC_MODE="help" ;;
+      "-v" )    export UC_VERBOSE="true" ;;
+      "-vvv" )  export UC_DEBUG="true" ;;
+      "-gz" )   export UC_COMP_MODE_GZ="true" ;;
+      "-bz2" )  export UC_COMP_MODE_BZ2="true" ;;
+      "-xz" )   export UC_COMP_MODE_XZ="true" ;;
+      "-d" )    export UC_DECOMP_NEW_DIR="ture" ;;
+    esac
 
     shift
   done
@@ -427,7 +472,12 @@ function Main() {
   elif [[ "$UC_MODE" == "help" ]]; then
     PrintHelp
   else
-    Eecho "Unknown mode: $UC_MODE"
+    if [[ "$UC_MODE" == "" ]]; then
+      Eecho "Mode is not specified."
+    else
+      Eecho "Unknown mode: $UC_MODE"
+    fi
+    Eecho ""
     PrintHelp
   fi
 }
