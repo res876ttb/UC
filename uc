@@ -108,6 +108,17 @@ function CheckFilesExist() {
   echo "check pass"
 }
 
+function CheckExist() {
+  for i in $@; do
+    if [[ ! -e $i ]]; then
+      Eecho "File or directory $i does not exist!"
+      return
+    fi
+  done
+
+  echo "check pass"
+}
+
 function GetFileType() {
   # Pass: return file type
   # Fail: return "unknown type"
@@ -411,7 +422,7 @@ function Compress() {
   compressed_file="$1"
 
   # Check whether file exists
-  if [[ "$(CheckFilesExist $files_to_compress)" != "check pass" ]]; then
+  if [[ "$(CheckExist $files_to_compress)" != "check pass" ]]; then
     Eecho "Some files do not exist. Aborted."
     return
   fi
